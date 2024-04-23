@@ -1,6 +1,4 @@
-import winim
-import defs
-
+include defs
 
 proc `+`*[S: SomeInteger](p: pointer, offset: S): pointer =
     return cast[pointer](cast[ByteAddress](p) +% int(offset))
@@ -34,19 +32,19 @@ proc getPid*(pname: string): int =
 
 proc ntQueryObjectWrapper(x: HANDLE, y: OBJECT_INFORMATION_CLASS): ptr BYTE =
     var InformationLength: ULONG = 0
-    var Ntstatus: NTSTATUS = defs.STATUS_INFO_LENGTH_MISMATCH
+    var Ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
     var Information: pointer
-    while Ntstatus == defs.STATUS_INFO_LENGTH_MISMATCH:
+    while Ntstatus == STATUS_INFO_LENGTH_MISMATCH:
         Information = realloc(Information, InformationLength)
-        Ntstatus = defs.NtQueryObject(x, y, Information, InformationLength, addr InformationLength)
+        Ntstatus = NtQueryObject(x, y, Information, InformationLength, addr InformationLength)
     return cast[PBYTE](Information)
 
 
 proc hijackProcessHandle*(wsObjectType: PWSTR, p_hTarget: HANDLE, dwDesiredAccess: DWORD): HANDLE =
     var InformationLength: ULONG = 0
-    var Ntstatus: NTSTATUS = defs.STATUS_INFO_LENGTH_MISMATCH
+    var Ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
     var Information: pointer
-    while Ntstatus == defs.STATUS_INFO_LENGTH_MISMATCH:
+    while Ntstatus == STATUS_INFO_LENGTH_MISMATCH:
         Information = realloc(Information, InformationLength)
         Ntstatus = NtQueryInformationProcess(
             p_hTarget, 
@@ -73,7 +71,7 @@ proc hijackProcessHandle*(wsObjectType: PWSTR, p_hTarget: HANDLE, dwDesiredAcces
             0
         ) == 0:
             continue
-        let pObjectInformation = ntQueryObjectWrapper(p_hDuplicatedObject, defs.OBJECT_TYPE_INFORMATION)
+        let pObjectInformation = ntQueryObjectWrapper(p_hDuplicatedObject, OBJECT_TYPE_INFORMATION)
         let pObjectTypeInformation = cast[PPUBLIC_OBJECT_TYPE_INFORMATION](pObjectInformation)
         if pObjectInformation == nil:
             continue 

