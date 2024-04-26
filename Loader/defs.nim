@@ -1,5 +1,5 @@
 import winim
-
+import nimprotect
 
 const
     PROCESS_HANDLE_INFORMATION = 51
@@ -273,12 +273,12 @@ proc NtQueryInformationWorkerFactory(
     WorkerFactoryInformation: PVOID,
     WorkerFactoryInformationLength: ULONG,
     ReturnLength: PULONG
-): NTSTATUS {.winapi, stdcall, dynlib: "ntdll", importc.}
+): NTSTATUS {.winapi, stdcall, dynlib: protectString("ntdll"), importc.}
 
 proc NtSetInformationWorkerFactory(
     WorkerFactoryHandle: HANDLE,
     WorkerFactoryInformationClass: WORKERFACTORYINFOCLASS,
     WorkerFactoryInformation: PVOID,
     WorkerFactoryInformationLength: ULONG,
-): NTSTATUS {.winapi, stdcall, dynlib: "ntdll", importc.}
+): NTSTATUS {.winapi, stdcall, dynlib: protectString("ntdll"), importc.}
 

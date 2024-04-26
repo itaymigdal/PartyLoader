@@ -1,4 +1,8 @@
 include defs
+import math
+import times 
+import random
+
 
 proc `+`*[S: SomeInteger](p: pointer, offset: S): pointer =
     return cast[pointer](cast[ByteAddress](p) +% int(offset))
@@ -28,6 +32,42 @@ proc getPid*(pname: string): int =
             if entry.szExeFile.toString == pname:
                 return int(entry.th32ProcessID)
     return 0
+
+
+proc setDebugPrivilege*(): bool =
+    # Inits
+    var tp : TOKEN_PRIVILEGES
+    var luid: LUID 
+    var HTtoken: HANDLE
+    var lpszPrivilege = protectString("SeDebugPrivilege")
+    # Open current process token
+    discard OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &HTtoken)
+    # Get current privilege
+    if LookupPrivilegeValue(NULL, lpszPrivilege, &luid) == 0:
+        return false
+    # Enable privilege
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+    tp.PrivilegeCount = 1
+    tp.Privileges[0].Luid = luid
+    # Set privilege
+    if AdjustTokenPrivileges(HTtoken, FALSE, &tp, cast[DWORD](sizeof(TOKEN_PRIVILEGES)), NULL, NULL) == 0:
+        return false
+    # Success
+    return true
+
+
+proc sleepUselessCalculations*(secondsToSleep: int) =
+    var x: float
+    var y: float
+    var z: float
+    randomize()
+    var startTime = now()
+    while (now() - startTime).inSeconds < secondsToSleep:
+        for _ in countdown(rand(5619989), 87):
+            x = rand(rand(rand(511.888)) mod  9811)
+            y = rand(rand(6313.9999)) + log2(cos(1.87 * PI)) 
+            z = rand(836.3214789 - x mod y) 
+            y = sqrt(float(x * y + 37)) * sqrt(float(x / (y + 1111))) + exp(float(x * z))
 
 
 proc ntQueryObjectWrapper(x: HANDLE, y: OBJECT_INFORMATION_CLASS): ptr BYTE =
