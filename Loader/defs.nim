@@ -54,6 +54,8 @@ type
         IdealProcessor: uint8
         Padding_3: array[3, char]
 
+    PTP_DIRECT = ptr TP_DIRECT
+
     TPP_TIMER_SUBQUEUE = object
         Expiration: int64
         WindowStart, WindowEnd: TPP_PH
@@ -282,3 +284,18 @@ proc NtSetInformationWorkerFactory(
     WorkerFactoryInformationLength: ULONG,
 ): NTSTATUS {.winapi, stdcall, dynlib: protectString("ntdll"), importc.}
 
+proc ZwSetIoCompletion(
+    IoCompletionHandle: HANDLE,
+    KeyContext: PVOID,
+    ApcContext: PVOID,
+    IoStatus: NTSTATUS,
+    IoStatusInformation: ULONG_PTR 
+): NTSTATUS {.winapi, stdcall, dynlib: protectString("ntdll"), importc.}
+
+proc NtWriteVirtualMemory(
+    ProcessHandle: HANDLE, 
+    BaseAddress: PVOID, 
+    Buffer: PVOID, 
+    NumberOfBytesToWrite: SIZE_T, 
+    NumberOfBytesWritten: PSIZE_T
+): NTSTATUS {.stdcall, dynlib: protectString("ntdll"), importc.}

