@@ -2,7 +2,7 @@
 
 > Project is still WIP
 
-Currently only [Pool Party injection](https://www.safebreach.com/blog/process-injection-using-windows-thread-pools/) varient 7 is implemented. I plan to add more features like stomping, and some more threadless injection techniques like [ThreadlessInject](https://github.com/CCob/ThreadlessInject), [EPI](https://github.com/Kudaes/EPI), and [DllNotificationInjection](https://github.com/ShorSec/DllNotificationInjection).
+Currently only [Pool Party injection](https://www.safebreach.com/blog/process-injection-using-windows-thread-pools/) variant 7 is implemented. I plan to add more features like stomping, and some more threadless injection techniques like [ThreadlessInject](https://github.com/CCob/ThreadlessInject), [EPI](https://github.com/Kudaes/EPI), and [DllNotificationInjection](https://github.com/ShorSec/DllNotificationInjection).
 
 ## Installation
 Built with Nim 1.6.12.
