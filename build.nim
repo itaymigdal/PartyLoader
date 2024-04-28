@@ -8,6 +8,18 @@ from std/base64 import encode
 
 # YOU HAVE TO HAVE A TOOL BANNER
 const banner = """
+
+░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓██████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓████████▓▒░▒▓███████▓▒░  ░▒▓█▓▒░    ░▒▓██████▓▒░       ░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓██████▓▒░ ░▒▓███████▓▒░  
+░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░      ░▒▓█▓▒░          ░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░      ░▒▓█▓▒░          ░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░      ░▒▓█▓▒░          ░▒▓████████▓▒░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+
+    >>  Threadless shellcode injection tool
+        https://github.com/itaymigdal/PartyLoader
+        By Itay Migdal
 """
 
 # Declare arguments
@@ -42,9 +54,9 @@ when isMainModule:
     # Define arguments
     var p = newParser:
         help(banner)
-        arg("raw-shellcode-file", help="Shellcode file to load")
-        option("-n", "--process-name", help="Process name to inject (default: explorer.exe)", default=some("explorer.exe"))
-        flag("-w", "--wait-for-process", help="Wait for the target process to start (default: exit if target process not found)")
+        arg("shellcode-file", help="Raw shellcode file to load")
+        option("-n", "--process-name", help="Process name to inject", default=some("explorer.exe"))
+        flag("-w", "--wait-for-process", help="Wait for the target process to start (default: exit if target process isn't found)")
         option("-f", "--format", help="Loader format", choices = @["exe", "dll"], default=some("exe"))
         option("-e", "--export", help="DLL export name (relevant only for Dll format)", default=some("DllRegisterServer"))
         flag("-p", "--split", help="Split and hide the payload blob in loader (takes long to compile!)")
@@ -55,7 +67,7 @@ when isMainModule:
     # Parse arguments
     try:
         var opts = p.parse()
-        shellcodePath = opts.raw_shellcode_file
+        shellcodePath = opts.shellcode_file
         processName = opts.process_name
         waitForProcess = opts.wait_for_process      
         outFormat = opts.format
