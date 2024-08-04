@@ -9,6 +9,7 @@ nimble install winim nimprotect supersnappy argparse
 ```
 
 ## Usage
+> Use only for 64 bit
 ```
 Usage:
    [options] shellcode_file
